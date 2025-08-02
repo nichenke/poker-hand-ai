@@ -85,3 +85,4 @@ help:
 	@echo "Documentation:"
 	@echo "  INFRASTRUCTURE.md     - Cloud infrastructure setup"
 	@echo "  LOCAL_WINDOWS_SETUP.md - Local Windows VM setup guide"
+	@echo "  QUICKSTART.md         - 5-minute setup instructions"

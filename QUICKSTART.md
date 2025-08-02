@@ -4,12 +4,20 @@ This is the fastest way to get your GTO Assistant running with a local Windows 1
 
 ## 🚀 Quick Setup (5 minutes)
 
+### Step 0: Clone Repository
+On your Mac:
+
+```bash
+git clone https://github.com/nichenke/poker-hand-ai.git
+cd poker-hand-ai
+```
+
 ### Step 1: Prepare Windows VM
 Run this **once** on your Windows 11 VM as Administrator:
 
 ```powershell
 # Download and run the setup script
-Invoke-WebRequest -Uri "https://raw.githubusercontent.com/your-repo/scripts/setup-windows-vm.ps1" -OutFile "setup.ps1"
+Invoke-WebRequest -Uri "https://raw.githubusercontent.com/nichenke/poker-hand-ai/main/scripts/setup-windows-vm.ps1" -OutFile "setup.ps1"
 PowerShell.exe -ExecutionPolicy Bypass -File setup.ps1
 ```
 

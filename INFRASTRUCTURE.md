@@ -157,6 +157,7 @@ Resources:
           choco install git -y
           
           # Clone and setup GTO service
+          git clone https://github.com/nichenke/poker-hand-ai.git
           # Add your setup commands here
           </powershell>
 

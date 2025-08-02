@@ -321,8 +321,9 @@ pipelining = True
 ### Execute the Setup
 
 ```bash
-# Navigate to your project directory
-cd /Users/nic/src/poker-gto+-m1
+# Clone the repository (if you haven't already)
+git clone https://github.com/nichenke/poker-hand-ai.git
+cd poker-hand-ai
 
 # Install Ansible Windows collection
 ansible-galaxy collection install ansible.windows

@@ -26,22 +26,34 @@ Mac (Development) → AWS/Azure Windows Node → Analysis Pipeline
 ## Prerequisites
 
 - Python 3.13
-- pipenv installed (`pip install pipenv` or `brew install pipenv`)
+- pipenv installed (`brew install pipenv`)
 - OpenAI API Key
+- Remote Windows node with GTO+ (see INFRASTRUCTURE.md)
 
-## Quick Start (Recommended)
+## Quick Start
 
-1. **Create .env file with your API key:**
+1. **Clone the repository:**
    ```bash
-   echo "OPENAI_API_KEY=your-api-key-here" > .env
+   git clone https://github.com/nichenke/poker-hand-ai.git
+   cd poker-hand-ai
    ```
 
-2. **Run the project:**
+2. **Setup environment:**
+   ```bash
+   echo "OPENAI_API_KEY=your-api-key-here" > .env
+   echo "GTO_SOLVER_URL=http://your-windows-node:8080" >> .env
+   ```
+
+3. **Add hand files:**
+   ```bash
+   # Place hand history files in hands/ directory
+   cp your_hands/*.txt hands/
+   ```
+
+4. **Run analysis:**
    ```bash
    make run
    ```
-
-That's it! The Makefile will handle dependency installation and environment setup.
 
 ## Makefile Commands
 
