@@ -6,6 +6,9 @@ name = "pypi"
 [packages]
 openai = "*"
 requests = "*"
+ansible = "*"
+pywinrm = "*"
+pyyaml = "*"
 
 [dev-packages]
 safety = "*"
