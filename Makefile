@@ -29,12 +29,17 @@ setup-windows:
 	@echo "Setting up Windows VM with Ansible..."
 	@echo "Make sure to update ansible/inventory.yml with your VM details first!"
 	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-galaxy collection install ansible.windows
-	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-playbook ansible/setup-gto-solver.yml
+	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-playbook -i ansible/inventory.yml ansible/setup-gto-solver.yml
 
 # Test Windows VM connection
 test-windows:
 	@echo "Testing connection to Windows VM..."
 	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible gto-solver -m win_ping -i ansible/inventory.yml
+
+# Test remote GTO service
+test-service:
+	@echo "Testing remote GTO service..."
+	@pipenv run python test-remote-service.py
 
 # Check environment and dependencies
 check:

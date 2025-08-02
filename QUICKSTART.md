@@ -30,11 +30,11 @@ Enable-PSRemoting -Force
 winrm quickconfig -force
 Write-Host "WinRM enabled" -ForegroundColor Green
 
-# Configure WinRM for Ansible
-winrm set winrm/config/service/auth '@{Basic="true"}'
+# Configure WinRM for Ansible with NTLM support
+winrm set winrm/config/service/auth '@{Basic="true";Negotiate="true"}'
 winrm set winrm/config/service '@{AllowUnencrypted="true"}'
 winrm set winrm/config/winrs '@{MaxMemoryPerShellMB="1024"}'
-Write-Host "WinRM configured for Ansible" -ForegroundColor Green
+Write-Host "WinRM configured for Ansible with NTLM support" -ForegroundColor Green
 
 # Create Ansible user - simplified approach
 $Username = "ansible"

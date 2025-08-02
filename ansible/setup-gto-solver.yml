@@ -226,8 +226,8 @@
       register: service_result
 
     - name: Test health endpoint
-      uri:
-        url: "http://{{ ansible_host }}:{{ gto_service_port }}/health"
+      win_uri:
+        url: "http://localhost:{{ gto_service_port }}/health"
         method: GET
         timeout: 10
       register: health_check
