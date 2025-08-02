@@ -22,7 +22,7 @@ Write-Host "✓ WinRM configured for Ansible" -ForegroundColor Green
 $Username = "ansible"
 $Password = Read-Host "Enter password for ansible user" -AsSecureString
 try {
-    New-LocalUser -Name $Username -Password $Password -Description "Ansible automation user" -PasswordNeverExpires
+    New-LocalUser -Name $Username -Password $Password -Description "Ansible automation user" -PasswordNeverExpires $true
     Add-LocalGroupMember -Group "Administrators" -Member $Username
     Write-Host "✓ Ansible user created and added to Administrators" -ForegroundColor Green
 } catch {
