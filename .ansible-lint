@@ -1,0 +1,33 @@
+# Ansible Lint Configuration for GTO+ Project
+---
+exclude_paths:
+  - .cache/ # implicit unless exclude_paths is defined in config
+  - .github/
+
+# Use default rules but skip some for development convenience
+use_default_rules: true
+
+# Report only a subset of tags and fully ignore any others
+warn_list:
+  - experimental # all rules tagged as experimental
+  - fqcn-builtins # Use FQCN for builtin actions (warning only)
+  - yaml[line-length] # Allow longer lines in YAML
+
+skip_list:
+  - risky-shell-pipe # Allow shell pipes for Windows commands
+  - command-instead-of-shell # Allow shell for Windows PowerShell commands
+  - yaml[line-length] # Allow longer lines for readability
+  - yaml[trailing-spaces] # Allow trailing spaces for development
+  - yaml[truthy] # Allow yes/no instead of true/false
+  - fqcn[action] # Allow short module names for readability
+  - fqcn[action-core] # Allow short builtin module names
+  - ignore-errors # Allow ignore_errors for development
+  - deprecated-local-action # Allow local_action for simplicity
+  - name[casing] # Allow lowercase handler names
+
+# Enable rules that are disabled by default
+enable_list:
+  - yaml # Enable all yaml rules
+
+# Offline mode disables installation of requirements.yml
+offline: false
