@@ -4,13 +4,23 @@ This guide helps you set up VS Code to edit files directly on your Windows VM fr
 
 ## 🚀 Quick Setup (Recommended)
 
-### 1. Local Setup (Mac)
+### Option 1: Automated Setup
+
+**Local Setup (Mac):**
 ```bash
 # Install VS Code extensions and configure SSH
 make setup-ssh
 ```
 
-### 2. Remote Setup (Windows VM)
+**Alternative manual setup:**
+```bash
+# Use the setup script directly
+./scripts/setup-remote-ssh.sh
+```
+
+### Option 2: Ansible Remote Setup
+
+**Remote Setup (Windows VM):**
 ```bash
 # Configure SSH server on Windows VM via Ansible (reliable method)
 make setup-windows-ssh-simple
