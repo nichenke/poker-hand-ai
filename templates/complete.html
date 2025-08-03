@@ -1,0 +1,33 @@
+{% extends "base.html" %}
+
+{% block title %}Complete Analyses{% endblock %}
+
+{% block content %}
+<div class="analyses-grid">
+    <h2>Complete Hand Analyses (with AI)</h2>
+    
+    {% if analyses %}
+        <div class="analyses-list">
+            {% for analysis in analyses %}
+            <div class="analysis-card">
+                <div class="card-header">
+                    <h3>Hand #{{ analysis.hand_id }}</h3>
+                    <span class="stakes">{{ analysis.stakes }}</span>
+                </div>
+                <div class="card-meta">
+                    <span class="timestamp">{{ analysis.processed_at }}</span>
+                </div>
+                <div class="card-actions">
+                    <a href="/analysis/{{ analysis.filename }}" class="btn btn-primary">View Analysis</a>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    {% else %}
+        <div class="empty-state">
+            <p>No complete analyses found. Trigger AI analysis on hands from the main page.</p>
+            <a href="/" class="btn btn-primary">View GTO Results</a>
+        </div>
+    {% endif %}
+</div>
+{% endblock %}

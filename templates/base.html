@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}GTO Analysis Visualizer{% endblock %}</title>
+    <link rel="stylesheet" href="/static/style.css">
+    <meta name="theme-color" content="#6366f1">
+    <meta name="description" content="Professional poker hand analysis with GTO solver and AI insights">
+</head>
+
+<body>
+    <nav class="navbar">
+        <div class="nav-container">
+            <h1><a href="/">🃏 GTO Analysis Visualizer</a></h1>
+            <div class="nav-links">
+                <a href="/">GTO Results</a>
+                <a href="/complete">Complete Analyses</a>
+                <button class="theme-toggle" onclick="toggleTheme()" aria-label="Toggle dark mode">
+                    <span class="theme-icon">🌙</span>
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <script src="/static/script.js"></script>
+</body>
+
+</html>

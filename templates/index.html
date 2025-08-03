@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}GTO Analysis Results{% endblock %}
+
+{% block content %}
+<div class="gto-results">
+    <div class="results-header">
+        <h2>🎯 GTO+ Analysis Results</h2>
+        <p class="subtitle">Click any hand to view GTO analysis or trigger AI analysis</p>
+    </div>
+
+    {% if gto_analyses %}
+    <div class="table-container">
+        <table class="results-table" id="gtoTable">
+            <thead>
+                <tr>
+                    <th data-sort="hand_id">Hand ID</th>
+                    <th data-sort="hole_cards">Cards</th>
+                    <th data-sort="position">Pos</th>
+                    <th data-sort="stakes">Stakes</th>
+                    <th data-sort="deviation_score">Dev</th>
+                    <th data-sort="total_ev">EV</th>
+                    <th data-sort="max_frequency">Freq</th>
+                    <th data-sort="processing_time">Time</th>
+                    <th data-sort="processed_at">Date</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for analysis in gto_analyses %}
+                <tr class="hand-row" data-hand-id="{{ analysis.hand_id }}">
+                    <td class="hand-id">
+                        <a href="/gto/{{ analysis.filename }}" class="hand-link">
+                            #{{ analysis.hand_id[-6:] }}
+                        </a>
+                    </td>
+                    <td class="hole-cards">
+                        <span class="cards-display">{{ analysis.hole_cards }}</span>
+                    </td>
+                    <td class="position">
+                        <span class="position-badge">{{ analysis.position }}</span>
+                    </td>
+                    <td class="stakes">
+                        <span class="stakes-badge">{{ analysis.stakes }}</span>
+                    </td>
+                    <td class="deviation-score">
+                        <span
+                            class="deviation-badge deviation-{{ 'high' if analysis.deviation_score >= 2.0 else 'medium' if analysis.deviation_score >= 1.0 else 'low' }}">
+                            {{ "%.1f"|format(analysis.deviation_score) }}
+                        </span>
+                    </td>
+                    <td class="total-ev">
+                        <span
+                            class="ev-value {{ 'positive' if analysis.total_ev > 0 else 'negative' if analysis.total_ev < 0 else 'neutral' }}">
+                            {{ "%+.1f"|format(analysis.total_ev) }}
+                        </span>
+                    </td>
+                    <td class="max-frequency">{{ "%.0f"|format(analysis.max_frequency * 100) }}%</td>
+                    <td class="processing-time">{{ "%.1f"|format(analysis.processing_time) }}s</td>
+                    <td class="processed-at">{{ analysis.processed_at.split(' ')[0][-5:] }}</td>
+                    <td class="actions">
+                        {% if analysis.has_ai_analysis %}
+                        <button class="btn btn-success btn-sm view-ai" data-hand-id="{{ analysis.hand_id }}">
+                            ✅ View AI Analysis
+                        </button>
+                        {% else %}
+                        <button class="btn btn-primary btn-sm trigger-ai" data-hand-id="{{ analysis.hand_id }}"
+                            data-deviation="{{ analysis.deviation_score }}">
+                            🤖 Run AI Analysis
+                        </button>
+                        <div class="ai-status" id="status-{{ analysis.hand_id }}" style="display: none;">
+                            <span class="loading">🔄 Running...</span>
+                        </div>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="results-summary">
+        <div class="summary-stats">
+            <div class="stat">
+                <span class="stat-value">{{ gto_analyses|length }}</span>
+                <span class="stat-label">Total Hands</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">{{ gto_analyses|selectattr("has_ai_analysis")|list|length }}</span>
+                <span class="stat-label">With AI Analysis</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">{{ gto_analyses|selectattr("deviation_score", ">=", 2.0)|list|length }}</span>
+                <span class="stat-label">High Deviation (≥2.0)</span>
+            </div>
+            <div class="stat">
+                <span class="stat-value">${{ "%.2f"|format((gto_analyses|selectattr("has_ai_analysis")|list|length) *
+                    0.25) }}</span>
+                <span class="stat-label">Estimated AI Cost</span>
+            </div>
+        </div>
+    </div>
+
+    {% else %}
+    <div class="empty-state">
+        <h3>No GTO Analysis Results Found</h3>
+        <p>Run GTO analysis first to see results here.</p>
+        <div class="help-commands">
+            <code>make gto</code>
+            <span>or</span>
+            <code>python gto_cli.py gto</code>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<!-- AI Analysis Modal -->
+<div id="aiModal" class="modal" style="display: none;">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>🤖 AI Analysis Progress</h3>
+            <button class="modal-close">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="progress-info">
+                <p>Running ChatGPT analysis for Hand #<span id="modalHandId"></span></p>
+                <p class="deviation-info">Deviation Score: <span id="modalDeviation"></span></p>
+                <div class="progress-bar">
+                    <div class="progress-fill"></div>
+                </div>
+                <p class="progress-text">This may take 30-60 seconds...</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
