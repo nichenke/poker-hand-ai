@@ -1,7 +1,7 @@
 # GTO Assistant Makefile
 # Requires: pipenv, .env file with OPENAI_API_KEY
 
-.PHONY: run install check clean help security setup-hands demo setup-windows test-windows visualize gto ai list
+.PHONY: run install check clean help security setup-hands demo setup-windows setup-windows-system setup-windows-service test-windows visualize gto ai list
 
 # Default target - interactive mode
 run: 
@@ -67,6 +67,18 @@ setup-windows:
 	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-galaxy collection install ansible.windows
 	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-playbook -i ansible/inventory.yml ansible/setup-gto-solver.yml
 
+# Setup Windows system configuration only (firewall, performance)
+setup-windows-system:
+	@echo "Setting up Windows system configuration for GTO+..."
+	@echo "Configuring firewall, performance optimizations, and system settings..."
+	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-playbook -i ansible/inventory.yml ansible/ansible-gto-setup.yml
+
+# Setup GTO+ service management only (scripts, monitoring)
+setup-windows-service:
+	@echo "Setting up GTO+ service management..."
+	@echo "Installing service scripts, monitoring, and scheduled tasks..."
+	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-playbook -i ansible/inventory.yml ansible/ansible-gto-service.yml
+
 # Test Windows VM connection
 test-windows:
 	@echo "Testing connection to Windows VM..."
@@ -110,12 +122,19 @@ help:
 	@echo "  make ai-min        - Step 2: AI analysis above threshold ($$)"
 	@echo "  make ai-hands      - Step 2: AI analysis on specific hands ($$)"
 	@echo ""
+	@echo "WINDOWS SERVER SETUP (Modular):"
+	@echo "  make setup-windows-system  - Configure firewall & performance only"
+	@echo "  make setup-windows-service - Install service scripts & monitoring only"
+	@echo "  make test-windows          - Test connection to Windows servers"
+	@echo ""
 	@echo "OTHER COMMANDS:"
 	@echo "  make run           - Interactive mode with all options"
 	@echo "  make visualize     - Start web visualizer for results"
 	@echo "  make install       - Install dependencies"
 	@echo "  make setup-hands   - Create hands directory structure"
-	@echo "  make setup-windows - Setup Windows VM with Ansible"
+	@echo "  make setup-windows - Setup Windows VM with Ansible (legacy)"
+	@echo "  make setup-windows-system  - Setup Windows system configuration only"
+	@echo "  make setup-windows-service - Setup GTO+ service management only"
 	@echo "  make test-windows  - Test connection to Windows VM"
 	@echo "  make check         - Check environment setup"
 	@echo "  make security      - Run security vulnerability checks"
@@ -127,6 +146,12 @@ help:
 	@echo "  3. make list       # Check deviation scores"
 	@echo "  4. make ai-top3    # AI analysis on most interesting hands"
 	@echo "  5. make visualize  # View results in web browser"
+	@echo ""
+	@echo "WINDOWS SETUP EXAMPLE:"
+	@echo "  1. Configure ansible/inventory.yml with your Windows servers"
+	@echo "  2. make setup-windows-system   # Configure system optimizations"
+	@echo "  3. make setup-windows-service  # Install service management"
+	@echo "  4. make test-windows           # Verify connection"
 	@echo ""
 	@echo "CLI USAGE:"
 	@echo "  pipenv run python gto_cli.py gto"

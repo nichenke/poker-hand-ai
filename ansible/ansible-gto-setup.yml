@@ -1,0 +1,294 @@
+---
+# Ansible Playbook for GTO+ Windows Server Setup
+# This playbook configures Windows firewall and performance optimizations for GTO+
+#
+# Prerequisites:
+# - Windows Server 2019/2022
+# - Ansible with pywinrm installed: pip install pywinrm
+# - WinRM configured on target Windows server
+#
+# Usage:
+# ansible-playbook -i inventory.ini ansible-gto-setup.yml
+
+- name: Configure Windows Server for GTO+ Poker Solver
+  hosts: gto-solver
+  gather_facts: yes
+  vars:
+    gto_install_path: "C:\\Program Files\\GTO"
+    gto_executable: "GTO+.exe"
+    gto_api_port: 8082
+    gto_port_range: "8080-8090"
+    gto_memory_allocation: "12GB"
+    scripts_directory: "C:\\Scripts"
+
+  tasks:
+    # ========================================
+    # Directory Setup
+    # ========================================
+
+    - name: Create GTO+ scripts directory
+      win_file:
+        path: "{{ scripts_directory }}"
+        state: directory
+      tags:
+        - setup
+        - directories
+
+    # ========================================
+    # Windows Firewall Configuration
+    # ========================================
+
+    - name: Configure Windows Firewall for GTO+ Application
+      win_firewall_rule:
+        name: "GTO+ Solver Application"
+        localport: any
+        action: allow
+        direction: in
+        protocol: any
+        program: "{{ gto_install_path }}\\{{ gto_executable }}"
+        state: present
+        enabled: true
+        description: "Allow GTO+ solver application through firewall"
+      tags:
+        - firewall
+        - security
+
+    - name: Configure Windows Firewall for GTO+ API Ports
+      win_firewall_rule:
+        name: "GTO+ API Port Range"
+        localport: "{{ gto_port_range }}"
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+        enabled: true
+        description: "Allow GTO+ API communication on ports {{ gto_port_range }}"
+      tags:
+        - firewall
+        - security
+
+    - name: Configure Windows Firewall for specific GTO+ API Port
+      win_firewall_rule:
+        name: "GTO+ Primary API Port"
+        localport: "{{ gto_api_port }}"
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+        enabled: true
+        description: "Allow GTO+ API on primary port {{ gto_api_port }}"
+      tags:
+        - firewall
+        - security
+
+    # ========================================
+    # Performance Optimizations
+    # ========================================
+
+    - name: Set Windows Power Plan to High Performance
+      win_power_plan:
+        name: high performance
+      tags:
+        - performance
+        - power
+
+    - name: Disable Windows Search Indexing on GTO+ directory
+      win_shell: |
+        try {
+          # Disable indexing on C: drive (if needed)
+          $volume = Get-WmiObject -Class Win32_Volume | Where-Object {$_.DriveLetter -eq "C:"}
+          if ($volume -and $volume.IndexingEnabled) {
+            Write-Host "Disabling indexing on C: drive..."
+            $volume.IndexingEnabled = $false
+            $volume.Put()
+          }
+          
+          # Add GTO+ directory to Windows Search exclusions using PowerShell
+          Write-Host "Adding GTO+ directory to search exclusions..."
+          
+          # Method 1: Using Windows Search Service API (safer)
+          $searchManager = New-Object -ComObject Search.Manager
+          $catalog = $searchManager.GetCatalog("SystemIndex")
+          $crawlScopeManager = $catalog.GetCrawlScopeManager()
+          
+          # Add exclusion rule
+          $gtoPath = "{{ gto_install_path }}"
+          $crawlScopeManager.AddUserScopeRule($gtoPath, $false, $false, $false)
+          $crawlScopeManager.SaveAll()
+          
+          Write-Host "Successfully added GTO+ directory exclusion"
+        }
+        catch {
+          Write-Host "Warning: Could not fully configure indexing exclusions: $($_.Exception.Message)"
+          
+          # Fallback: Try registry method with proper error handling
+          try {
+            $regPath = "HKLM:\SOFTWARE\Microsoft\Windows Search\CrawlScopeManager\Windows\SystemIndex\WorkingSetRules"
+            if (Test-Path $regPath) {
+              New-ItemProperty -Path $regPath -Name "{{ gto_install_path }}" -Value 0 -PropertyType DWord -Force -ErrorAction SilentlyContinue
+              Write-Host "Applied registry-based exclusion as fallback"
+            }
+          }
+          catch {
+            Write-Host "Registry fallback also failed: $($_.Exception.Message)"
+          }
+        }
+      tags:
+        - performance
+        - indexing
+
+    - name: Configure Virtual Memory (Page File)
+      win_pagefile:
+        drive: C
+        initial_size: 32768 # 32GB
+        maximum_size: 32768 # 32GB
+        state: present
+      tags:
+        - performance
+        - memory
+
+    - name: Set GTO+ process priority registry setting
+      win_regedit:
+        path: HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\{{ gto_executable }}
+        name: PriorityClass
+        data: 3 # High priority (1=Idle, 2=Normal, 3=High, 4=Realtime)
+        type: dword
+      tags:
+        - performance
+        - process_priority
+
+    # ========================================
+    # System Optimizations
+    # ========================================
+
+    - name: Disable unnecessary Windows services for performance
+      win_service:
+        name: "{{ item }}"
+        state: stopped
+        start_mode: disabled
+      loop:
+        - "Fax"
+        - "WSearch" # Windows Search (we disabled indexing)
+        - "Spooler" # Print Spooler (if not needed)
+        - "Themes" # Themes service (for server performance)
+      ignore_errors: yes # Some services might not exist
+      tags:
+        - performance
+        - services
+
+    - name: Configure Windows Defender exclusions for GTO+
+      win_shell: |
+        Add-MpPreference -ExclusionPath "{{ gto_install_path }}"
+        Add-MpPreference -ExclusionProcess "{{ gto_executable }}"
+      tags:
+        - performance
+        - antivirus
+
+    - name: Set network adapter to high performance
+      win_shell: |
+        Get-NetAdapter | ForEach-Object {
+          Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Power Saving Mode" -DisplayValue "Disabled" -ErrorAction SilentlyContinue
+          Set-NetAdapterAdvancedProperty -Name $_.Name -DisplayName "Energy Efficient Ethernet" -DisplayValue "Disabled" -ErrorAction SilentlyContinue
+        }
+      tags:
+        - performance
+        - network
+
+    # ========================================
+    # System Information Collection
+    # ========================================
+
+    - name: Gather system information for optimization validation
+      win_shell: |
+        Write-Host "=== System Information ==="
+
+        # Get OS information
+        $os = Get-WmiObject -Class Win32_OperatingSystem
+        Write-Host "Product Name: $($os.Caption)"
+        Write-Host "Version: $($os.Version)"
+        Write-Host "Build Number: $($os.BuildNumber)"
+
+        # Get memory information using WMI
+        $totalMemoryBytes = $os.TotalVisibleMemorySize * 1KB
+        $freeMemoryBytes = $os.FreePhysicalMemory * 1KB
+        $totalMemoryGB = [math]::Round($totalMemoryBytes / 1GB, 2)
+        $freeMemoryGB = [math]::Round($freeMemoryBytes / 1GB, 2)
+        $usedMemoryGB = [math]::Round(($totalMemoryBytes - $freeMemoryBytes) / 1GB, 2)
+
+        Write-Host "Total Physical Memory: $totalMemoryGB GB"
+        Write-Host "Free Memory: $freeMemoryGB GB"
+        Write-Host "Used Memory: $usedMemoryGB GB"
+
+        # Get processor information
+        $processor = Get-WmiObject -Class Win32_Processor | Select-Object -First 1
+        Write-Host "Processor: $($processor.Name)"
+        Write-Host "Cores: $($processor.NumberOfCores)"
+        Write-Host "Logical Processors: $($processor.NumberOfLogicalProcessors)"
+
+        Write-Host "`n=== Power Plan ==="
+        $activePlan = powercfg /getactivescheme
+        Write-Host "$activePlan"
+
+        Write-Host "`n=== Memory Configuration ==="
+        $pageFile = Get-WmiObject -Class Win32_PageFileUsage
+        if ($pageFile) {
+          foreach ($pf in $pageFile) {
+            Write-Host "Page File: $($pf.Name)"
+            Write-Host "Allocated Size: $($pf.AllocatedBaseSize) MB"
+            Write-Host "Current Usage: $($pf.CurrentUsage) MB"
+          }
+        } else {
+          Write-Host "No page file configured"
+        }
+
+        Write-Host "`n=== Network Adapters ==="
+        $adapters = Get-NetAdapter | Where-Object {$_.Status -eq "Up"}
+        foreach ($adapter in $adapters) {
+          Write-Host "Name: $($adapter.Name)"
+          Write-Host "Link Speed: $($adapter.LinkSpeed)"
+          Write-Host "MAC Address: $($adapter.MacAddress)"
+          Write-Host "---"
+        }
+
+        Write-Host "`n=== Firewall Rules ==="
+        $gtoRules = Get-NetFirewallRule -DisplayName "*GTO*" -ErrorAction SilentlyContinue
+        if ($gtoRules) {
+          foreach ($rule in $gtoRules) {
+            Write-Host "Rule: $($rule.DisplayName)"
+            Write-Host "Enabled: $($rule.Enabled)"
+            Write-Host "Direction: $($rule.Direction)"
+            Write-Host "---"
+          }
+        } else {
+          Write-Host "No GTO+ firewall rules found"
+        }
+
+        Write-Host "`n=== Disk Space ==="
+        $drives = Get-WmiObject -Class Win32_LogicalDisk | Where-Object {$_.DriveType -eq 3}
+        foreach ($drive in $drives) {
+          $freeSpaceGB = [math]::Round($drive.FreeSpace / 1GB, 2)
+          $totalSpaceGB = [math]::Round($drive.Size / 1GB, 2)
+          $usedSpaceGB = $totalSpaceGB - $freeSpaceGB
+          $percentUsed = [math]::Round(($usedSpaceGB / $totalSpaceGB) * 100, 1)
+          Write-Host "Drive $($drive.DeviceID) - Total: $totalSpaceGB GB, Free: $freeSpaceGB GB, Used: $percentUsed%"
+        }
+      register: system_info
+      tags:
+        - validation
+        - info
+
+    - name: Display system configuration summary
+      debug:
+        var: system_info.stdout_lines
+      tags:
+        - validation
+        - info
+
+  # ========================================
+  # Handlers for system restarts
+  # ========================================
+  handlers:
+    - name: reboot system
+      win_reboot:
+        reboot_timeout: 600
+      listen: "reboot required"

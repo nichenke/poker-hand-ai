@@ -1,0 +1,442 @@
+---
+# GTO+ Service Management Playbook
+# This playbook handles GTO+ service installation, management, and monitoring
+#
+# Prerequisites:
+# - Windows Server with GTO+ already installed
+# - WinRM configured
+# - Run ansible-gto-setup.yml first for basic configuration
+#
+# Usage:
+# ansible-playbook -i inventory.ini ansible-gto-service.yml
+
+- name: Configure GTO+ Service Management
+  hosts: gto-solver
+  gather_facts: yes
+  vars:
+    gto_install_path: "C:\\Program Files\\GTO"
+    gto_executable: "GTO+.exe"
+    gto_api_port: 8082
+    gto_memory_allocation: "12GB"
+    gto_log_level: "info"
+    scripts_directory: "C:\\Scripts"
+    service_name: "GTO+ API Service"
+    service_description: "GTO+ Poker Solver API Service"
+
+  tasks:
+    # ========================================
+    # Service Directory Setup
+    # ========================================
+
+    - name: Ensure GTO+ scripts directory exists
+      win_file:
+        path: "{{ scripts_directory }}"
+        state: directory
+      tags:
+        - setup
+        - directories
+
+    - name: Create GTO+ logs directory
+      win_file:
+        path: "{{ scripts_directory }}\\logs"
+        state: directory
+      tags:
+        - setup
+        - directories
+
+    # ========================================
+    # GTO+ Service Scripts
+    # ========================================
+
+    - name: Create GTO+ start service script
+      win_copy:
+        content: |
+          @echo off
+          echo Starting GTO+ API Server...
+          echo %date% %time% - Starting GTO+ API Server >> "{{ scripts_directory }}\\logs\\gto_service.log"
+
+          cd "{{ gto_install_path }}"
+          {{ gto_executable }} --api-mode --port={{ gto_api_port }} --memory={{ gto_memory_allocation }} --log-level={{ gto_log_level }} >> "{{ scripts_directory }}\\logs\\gto_api.log" 2>&1
+        dest: "{{ scripts_directory }}\\start_gto_api.bat"
+      tags:
+        - scripts
+        - service
+
+    - name: Create GTO+ stop service script
+      win_copy:
+        content: |
+          @echo off
+          echo Stopping GTO+ API Server...
+          echo %date% %time% - Stopping GTO+ API Server >> "{{ scripts_directory }}\\logs\\gto_service.log"
+
+          taskkill /IM "{{ gto_executable }}" /F
+          if %errorlevel% equ 0 (
+            echo GTO+ API Server stopped successfully
+            echo %date% %time% - GTO+ API Server stopped successfully >> "{{ scripts_directory }}\\logs\\gto_service.log"
+          ) else (
+            echo Failed to stop GTO+ API Server
+            echo %date% %time% - Failed to stop GTO+ API Server >> "{{ scripts_directory }}\\logs\\gto_service.log"
+          )
+        dest: "{{ scripts_directory }}\\stop_gto_api.bat"
+      tags:
+        - scripts
+        - service
+
+    - name: Create GTO+ restart service script
+      win_copy:
+        content: |
+          @echo off
+          echo Restarting GTO+ API Server...
+          echo %date% %time% - Restarting GTO+ API Server >> "{{ scripts_directory }}\\logs\\gto_service.log"
+
+          call "{{ scripts_directory }}\\stop_gto_api.bat"
+          timeout /t 10 /nobreak > nul
+          call "{{ scripts_directory }}\\start_gto_api.bat"
+        dest: "{{ scripts_directory }}\\restart_gto_api.bat"
+      tags:
+        - scripts
+        - service
+
+    - name: Create GTO+ status check script
+      win_copy:
+        content: |
+          @echo off
+          echo Checking GTO+ API Status...
+
+          tasklist /FI "IMAGENAME eq {{ gto_executable }}" | find /I "{{ gto_executable }}" > nul
+          if %errorlevel% equ 0 (
+            echo GTO+ process is running
+            echo %date% %time% - GTO+ process is running >> "{{ scripts_directory }}\\logs\\gto_service.log"
+          ) else (
+            echo GTO+ process is not running
+            echo %date% %time% - GTO+ process is not running >> "{{ scripts_directory }}\\logs\\gto_service.log"
+            exit /b 1
+          )
+        dest: "{{ scripts_directory }}\\check_gto_status.bat"
+      tags:
+        - scripts
+        - monitoring
+
+    - name: Create GTO+ health check script
+      win_copy:
+        content: |
+          @echo off
+          echo Checking GTO+ API Health...
+
+          curl -s -f -m 10 http://localhost:{{ gto_api_port }}/health > nul
+          if %errorlevel% equ 0 (
+            echo GTO+ API is healthy
+            echo %date% %time% - GTO+ API health check passed >> "{{ scripts_directory }}\\logs\\gto_service.log"
+          ) else (
+            echo GTO+ API is not responding
+            echo %date% %time% - GTO+ API health check failed >> "{{ scripts_directory }}\\logs\\gto_service.log"
+            
+            REM Try to restart if health check fails
+            echo Attempting to restart GTO+ service...
+            call "{{ scripts_directory }}\\restart_gto_api.bat"
+            exit /b 1
+          )
+        dest: "{{ scripts_directory }}\\check_gto_health.bat"
+      tags:
+        - scripts
+        - monitoring
+
+    - name: Create GTO+ service installer script
+      win_copy:
+        content: |
+          @echo off
+          echo Installing GTO+ as Windows Service...
+
+          REM Check if NSSM is available
+          where nssm > nul 2>&1
+          if %errorlevel% neq 0 (
+            echo NSSM is not installed. Please install NSSM first.
+            echo Download from: https://nssm.cc/download
+            exit /b 1
+          )
+
+          REM Install the service
+          nssm install "{{ service_name }}" "{{ scripts_directory }}\\start_gto_api.bat"
+          nssm set "{{ service_name }}" Description "{{ service_description }}"
+          nssm set "{{ service_name }}" Start SERVICE_AUTO_START
+
+          REM Configure service recovery
+          nssm set "{{ service_name }}" AppThrottle 5000
+          nssm set "{{ service_name }}" AppRestartDelay 30000
+          nssm set "{{ service_name }}" AppExit Default Restart
+
+          echo Service installed successfully. Use 'net start "{{ service_name }}"' to start.
+        dest: "{{ scripts_directory }}\\install_gto_service.bat"
+      tags:
+        - scripts
+        - service
+        - installation
+
+    - name: Create GTO+ service uninstaller script
+      win_copy:
+        content: |
+          @echo off
+          echo Uninstalling GTO+ Windows Service...
+
+          REM Stop the service if running
+          net stop "{{ service_name }}" 2>nul
+
+          REM Remove the service
+          nssm remove "{{ service_name }}" confirm
+
+          echo Service uninstalled successfully.
+        dest: "{{ scripts_directory }}\\uninstall_gto_service.bat"
+      tags:
+        - scripts
+        - service
+        - installation
+
+    # ========================================
+    # Service Monitoring Scripts
+    # ========================================
+
+    - name: Create comprehensive GTO+ monitoring script
+      win_copy:
+        content: |
+          @echo off
+          setlocal enabledelayedexpansion
+
+          echo ==============================================
+          echo GTO+ Service Monitoring Report
+          echo Generated: %date% %time%
+          echo ==============================================
+
+          echo.
+          echo === Process Status ===
+          tasklist /FI "IMAGENAME eq {{ gto_executable }}" | find /I "{{ gto_executable }}"
+          if %errorlevel% equ 0 (
+            echo Status: RUNNING
+            set PROCESS_STATUS=RUNNING
+          ) else (
+            echo Status: NOT RUNNING
+            set PROCESS_STATUS=STOPPED
+          )
+
+          echo.
+          echo === API Health Check ===
+          curl -s -f -m 10 http://localhost:{{ gto_api_port }}/health
+          if %errorlevel% equ 0 (
+            echo API Status: HEALTHY
+            set API_STATUS=HEALTHY
+          ) else (
+            echo API Status: UNHEALTHY
+            set API_STATUS=UNHEALTHY
+          )
+
+          echo.
+          echo === Memory Usage ===
+          for /f "tokens=2 delims=," %%a in ('tasklist /FI "IMAGENAME eq {{ gto_executable }}" /FO CSV ^| find "{{ gto_executable }}"') do (
+            echo Memory: %%a
+          )
+
+          echo.
+          echo === Port Status ===
+          netstat -an | find ":{{ gto_api_port }}"
+          if %errorlevel% equ 0 (
+            echo Port {{ gto_api_port }}: LISTENING
+          ) else (
+            echo Port {{ gto_api_port }}: NOT LISTENING
+          )
+
+          echo.
+          echo === Recent Log Entries ===
+          if exist "{{ scripts_directory }}\\logs\\gto_service.log" (
+            powershell "Get-Content '{{ scripts_directory }}\\logs\\gto_service.log' | Select-Object -Last 10"
+          ) else (
+            echo No service log found
+          )
+
+          echo.
+          echo ==============================================
+
+          REM Log the monitoring results
+          echo %date% %time% - Process: !PROCESS_STATUS!, API: !API_STATUS! >> "{{ scripts_directory }}\\logs\\gto_monitoring.log"
+        dest: "{{ scripts_directory }}\\monitor_gto.bat"
+      tags:
+        - scripts
+        - monitoring
+
+    # ========================================
+    # Scheduled Tasks for Service Monitoring
+    # ========================================
+
+    - name: Create scheduled task for GTO+ health monitoring
+      win_scheduled_task:
+        name: "GTO+ Health Monitor"
+        description: "Monitor GTO+ API health every 5 minutes and restart if needed"
+        actions:
+          - path: "{{ scripts_directory }}\\check_gto_health.bat"
+            working_directory: "{{ scripts_directory }}"
+        triggers:
+          - type: time
+            repetition:
+              interval: PT5M # Every 5 minutes
+        username: SYSTEM
+        state: present
+        enabled: true
+        run_level: highest
+      tags:
+        - monitoring
+        - scheduled_tasks
+
+    - name: Create scheduled task for comprehensive GTO+ monitoring
+      win_scheduled_task:
+        name: "GTO+ System Monitor"
+        description: "Generate comprehensive GTO+ monitoring report every 15 minutes"
+        actions:
+          - path: "{{ scripts_directory }}\\monitor_gto.bat"
+            working_directory: "{{ scripts_directory }}"
+        triggers:
+          - type: time
+            repetition:
+              interval: PT15M # Every 15 minutes
+        username: SYSTEM
+        state: present
+        enabled: true
+      tags:
+        - monitoring
+        - scheduled_tasks
+
+    - name: Create scheduled task for log cleanup
+      win_scheduled_task:
+        name: "GTO+ Log Cleanup"
+        description: "Clean up old GTO+ log files weekly"
+        actions:
+          - path: powershell.exe
+            arguments: -Command "Get-ChildItem '{{ scripts_directory }}\\logs\\*.log' | Where-Object {$_.LastWriteTime -lt (Get-Date).AddDays(-30)} | Remove-Item -Force"
+        triggers:
+          - type: weekly
+            days_of_week: ["sunday"]
+            start_boundary: "2024-01-01T02:00:00"
+        username: SYSTEM
+        state: present
+        enabled: true
+      tags:
+        - monitoring
+        - maintenance
+
+    # ========================================
+    # Windows Event Logging
+    # ========================================
+
+    - name: Configure Windows Event Log for GTO+ service
+      win_shell: |
+        # Create custom event log for GTO+ service
+        if (-not [System.Diagnostics.EventLog]::SourceExists("GTO+ Service")) {
+          New-EventLog -LogName "Application" -Source "GTO+ Service"
+        }
+
+        # Log service configuration event
+        Write-EventLog -LogName "Application" -Source "GTO+ Service" -EventID 1000 -EntryType Information -Message "GTO+ Service monitoring configured via Ansible"
+      tags:
+        - logging
+        - monitoring
+
+    # ========================================
+    # Service Validation
+    # ========================================
+
+    - name: Validate GTO+ service configuration
+      win_shell: |
+        Write-Host "=== GTO+ Service Validation ==="
+
+        # Check if GTO+ executable exists
+        if (Test-Path "{{ gto_install_path }}\\{{ gto_executable }}") {
+          Write-Host "✓ GTO+ executable found"
+        } else {
+          Write-Host "✗ GTO+ executable NOT found at {{ gto_install_path }}\\{{ gto_executable }}"
+        }
+
+        # Check if scripts directory exists
+        if (Test-Path "{{ scripts_directory }}") {
+          Write-Host "✓ Scripts directory exists"
+          $scripts = @("start_gto_api.bat", "stop_gto_api.bat", "restart_gto_api.bat", "check_gto_health.bat", "monitor_gto.bat")
+          foreach ($script in $scripts) {
+            if (Test-Path "{{ scripts_directory }}\\$script") {
+              Write-Host "  ✓ $script"
+            } else {
+              Write-Host "  ✗ $script MISSING"
+            }
+          }
+        } else {
+          Write-Host "✗ Scripts directory NOT found"
+        }
+
+        # Check scheduled tasks
+        $tasks = @("GTO+ Health Monitor", "GTO+ System Monitor", "GTO+ Log Cleanup")
+        foreach ($task in $tasks) {
+          $scheduledTask = Get-ScheduledTask -TaskName $task -ErrorAction SilentlyContinue
+          if ($scheduledTask) {
+            Write-Host "✓ Scheduled task: $task (State: $($scheduledTask.State))"
+          } else {
+            Write-Host "✗ Scheduled task MISSING: $task"
+          }
+        }
+
+        # Test API port
+        $portTest = Test-NetConnection -ComputerName localhost -Port {{ gto_api_port }} -InformationLevel Quiet -WarningAction SilentlyContinue
+        if ($portTest) {
+          Write-Host "✓ Port {{ gto_api_port }} is accessible"
+        } else {
+          Write-Host "⚠ Port {{ gto_api_port }} is not currently accessible (service may not be running)"
+        }
+      register: service_validation
+      tags:
+        - validation
+        - service
+
+    - name: Display service validation results
+      debug:
+        var: service_validation.stdout_lines
+      tags:
+        - validation
+        - service
+
+    # ========================================
+    # Service Management Tasks
+    # ========================================
+
+    - name: Check if GTO+ service should be started
+      win_shell: |
+        tasklist /FI "IMAGENAME eq {{ gto_executable }}" | find /I "{{ gto_executable }}" > nul
+        exit $LASTEXITCODE
+      register: gto_process_check
+      changed_when: false
+      failed_when: false
+      tags:
+        - service
+        - status
+
+    - name: Start GTO+ service if not running
+      win_shell: |
+        & "{{ scripts_directory }}\\start_gto_api.bat"
+      when:
+        - gto_process_check.rc != 0
+        - start_gto_service | default(false) | bool
+      tags:
+        - service
+        - start
+
+  # ========================================
+  # Handlers for service management
+  # ========================================
+  handlers:
+    - name: restart gto service
+      win_shell: |
+        & "{{ scripts_directory }}\\restart_gto_api.bat"
+      listen: "restart gto"
+
+    - name: stop gto service
+      win_shell: |
+        & "{{ scripts_directory }}\\stop_gto_api.bat"
+      listen: "stop gto"
+
+    - name: start gto service
+      win_shell: |
+        & "{{ scripts_directory }}\\start_gto_api.bat"
+      listen: "start gto"

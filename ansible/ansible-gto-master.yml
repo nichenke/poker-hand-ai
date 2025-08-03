@@ -1,0 +1,18 @@
+---
+# Master GTO+ Deployment Playbook
+# This playbook runs both system configuration and service management in sequence
+#
+# Usage:
+# ansible-playbook -i inventory.ini ansible-gto-master.yml
+
+- import_playbook: ansible-gto-setup.yml
+  tags:
+    - setup
+    - system
+    - configuration
+
+- import_playbook: ansible-gto-service.yml
+  tags:
+    - service
+    - monitoring
+    - management

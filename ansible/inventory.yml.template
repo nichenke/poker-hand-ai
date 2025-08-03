@@ -2,13 +2,23 @@ all:
   hosts:
     gto-solver:
       ansible_host: YOUR_VM_IP_ADDRESS  # Replace with your VM IP (e.g., 192.168.1.100)
-      ansible_user: ansible
-      ansible_password: YOUR_ANSIBLE_PASSWORD  # Replace with the password you set
+      ansible_user: Administrator  # or your preferred user
+      ansible_password: YOUR_ANSIBLE_PASSWORD  # Replace with actual password
+      # Better: ansible_password: "{{ vault_windows_password }}"
       ansible_connection: winrm
       ansible_winrm_transport: ntlm
       ansible_winrm_server_cert_validation: ignore
-      ansible_port: 5985
+      ansible_port: 5986  # HTTPS WinRM port (5985 for HTTP)
+      ansible_winrm_scheme: https
+      ansible_python_interpreter: auto
 
   vars:
-    gto_service_port: 8080
+    # Global variables
+    gto_environment: production
+    gto_service_port: 8082  # Updated to match new default
+    gto_api_port: 8082      # GTO+ API port
     python_version: "3.11.0"
+    
+    # WinRM timeouts
+    ansible_winrm_read_timeout_sec: 60
+    ansible_winrm_operation_timeout_sec: 45
