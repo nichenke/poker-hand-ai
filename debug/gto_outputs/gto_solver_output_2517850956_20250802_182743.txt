@@ -1,0 +1,4 @@
+Hand ID: 2517850956
+Timestamp: 20250802_182743
+============================================================
+Mock GTO+ analysis for hand 2517850956\n\nPreflop Analysis:\n- Position: Analysis based on hand history\n- Range recommendations: Dynamically generated\n- Frequency suggestions: Based on GTO principles

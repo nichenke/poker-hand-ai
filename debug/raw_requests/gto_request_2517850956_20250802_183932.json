@@ -1,0 +1,6 @@
+{
+  "hand_id": "2517850956",
+  "hand_history": "Hand #2517850956 - Holdem (No Limit) - $0.05/$0.10 - 2025/08/02 16:27:16 UTC\nDealt to Roughneck7 [Kh Ks]\nRoughneck7 raises $0.30\nFiddleyo calls $0.25\nNLBablo raises $1.20 to $1.30\nRoughneck7 raises $2.70 to $3.00\nFiddleyo folds\nNLBablo folds\nRoughneck7 wins $2.90\n",
+  "solver_type": "gto_plus",
+  "analysis_depth": "full"
+}

@@ -1,0 +1,23 @@
+{
+  "ev_analysis": {
+    "AKs_5bet_fold_loss": -0.03,
+    "KK_flat_loss": -0.18,
+    "QQ_fold_loss": -0.22
+  },
+  "frequencies": {
+    "AKs_5bet": 0.41,
+    "AKs_call": 0.59,
+    "KK_5bet": 1.0,
+    "QQ_5bet": 0.52,
+    "QQ_call": 0.48
+  },
+  "hand_id": "2517850956",
+  "processing_time": 2.001821517944336,
+  "ranges": {
+    "BB": "99+, AKo, AQs+, some KQs",
+    "BTN": "22+, A2+, K2+, Q2+, J2+",
+    "CO": "77+, AJs+, AQo+, KQs"
+  },
+  "solver_output": "Mock GTO+ analysis for hand 2517850956\\n\\nPreflop Analysis:\\n- Position: Analysis based on hand history\\n- Range recommendations: Dynamically generated\\n- Frequency suggestions: Based on GTO principles",
+  "status": "success"
+}
