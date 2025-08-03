@@ -9,6 +9,9 @@ requests = "*"
 ansible = "*"
 pywinrm = "*"
 pyyaml = "*"
+python-dotenv = "*"
+flask = "*"
+markdown = "*"
 
 [dev-packages]
 safety = "*"
