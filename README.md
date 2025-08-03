@@ -7,6 +7,7 @@ An automated system for analyzing poker hands using remote GTO+ solver and AI-po
 - **Batch Processing**: Analyze multiple hands from files
 - **Remote GTO+ Integration**: Leverage Windows-based GTO+ solver via API
 - **AI Analysis**: Deep strategic insights using GPT-4o
+- **Web Visualizer**: ChatGPT-like interface for viewing analysis results
 - **Export Pipeline**: Complete analysis results in JSON format
 - **Infrastructure Automation**: Cloud deployment scripts included
 - **Clean Architecture**: File-based processing with no hardcoded examples
@@ -55,9 +56,16 @@ Mac (Development) → AWS/Azure Windows Node → Analysis Pipeline
    make run
    ```
 
+5. **View results in web interface:**
+   ```bash
+   make visualize
+   # Open browser to: http://localhost:8081
+   ```
+
 ## Makefile Commands
 
 - `make run` - Install dependencies and run the GTO assistant (default)
+- `make visualize` - Start web visualizer for analysis results
 - `make install` - Install dependencies only
 - `make check` - Check environment setup and verify dependencies
 - `make security` - Run security vulnerability checks
