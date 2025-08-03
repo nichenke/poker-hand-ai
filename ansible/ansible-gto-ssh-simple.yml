@@ -1,0 +1,259 @@
+---
+- name: Simple SSH Setup for Windows (Multiple Methods)
+  hosts: gto-solver
+  gather_facts: yes
+  vars:
+    ssh_port: 22
+    
+  tasks:
+    - name: Get Windows version
+      win_shell: |
+        $os = Get-CimInstance Win32_OperatingSystem
+        Write-Output "ProductName: $($os.Caption)"
+        Write-Output "Version: $($os.Version)"
+        Write-Output "BuildNumber: $($os.BuildNumber)"
+      register: win_version
+
+    - name: Display Windows information
+      debug:
+        var: win_version.stdout_lines
+
+    - name: Method 1 - Install OpenSSH via Chocolatey (Most reliable)
+      win_chocolatey:
+        name: openssh
+        state: present
+      register: choco_install
+      ignore_errors: yes
+
+    - name: Install SSH server service after Chocolatey installation
+      win_shell: |
+        # Check if sshd service already exists
+        $service = Get-Service sshd -ErrorAction SilentlyContinue
+        if ($service) {
+          Write-Output "SSH service already exists"
+          exit 0
+        }
+        
+        # Try to install from Chocolatey installation
+        $opensshPath = "C:\Program Files\OpenSSH-Win64"
+        if (Test-Path "$opensshPath\install-sshd.ps1") {
+          Write-Output "Installing SSH service from Chocolatey installation..."
+          Set-Location $opensshPath
+          .\install-sshd.ps1
+          Write-Output "SSH service installed successfully"
+        } else {
+          Write-Output "SSH service installation script not found"
+          exit 1
+        }
+      register: ssh_service_install
+      when: choco_install is succeeded
+      ignore_errors: yes
+
+    - name: Method 2 - Install via PowerShell (Windows 10/Server 2019+)
+      win_shell: |
+        # Check if already installed
+        if (Get-WindowsCapability -Online | Where-Object Name -like "OpenSSH.Server*" | Where-Object State -eq "Installed") {
+          Write-Output "OpenSSH Server already installed"
+          exit 0
+        }
+        
+        # Try to install
+        try {
+          Add-WindowsCapability -Online -Name OpenSSH.Server~~~~0.0.1.0
+          Write-Output "Successfully installed OpenSSH Server"
+        } catch {
+          Write-Output "Failed to install via Windows Capability: $($_.Exception.Message)"
+          exit 1
+        }
+      register: ps_install
+      ignore_errors: yes
+      when: choco_install is failed
+
+    - name: Method 3 - Manual download and install (Last resort)
+      win_shell: |
+        $downloadUrl = "https://github.com/PowerShell/Win32-OpenSSH/releases/latest/download/OpenSSH-Win64.zip"
+        $downloadPath = "C:\temp\OpenSSH-Win64.zip"
+        $installPath = "C:\Program Files\OpenSSH"
+        
+        # Create temp directory
+        New-Item -ItemType Directory -Force -Path C:\temp
+        
+        # Download OpenSSH
+        Invoke-WebRequest -Uri $downloadUrl -OutFile $downloadPath
+        
+        # Extract
+        Expand-Archive -Path $downloadPath -DestinationPath "C:\temp" -Force
+        
+        # Install
+        if (Test-Path $installPath) {
+          Remove-Item $installPath -Recurse -Force
+        }
+        Move-Item "C:\temp\OpenSSH-Win64" $installPath
+        
+        # Run install script
+        & "$installPath\install-sshd.ps1"
+        
+        Write-Output "Manual OpenSSH installation completed"
+      register: manual_install
+      ignore_errors: yes
+      when: 
+        - choco_install is failed
+        - ps_install is failed
+
+    - name: Verify SSH service exists
+      win_service:
+        name: sshd
+      register: sshd_check
+      ignore_errors: yes
+
+    - name: Configure SSH service
+      win_service:
+        name: sshd
+        start_mode: auto
+        state: started
+      register: service_config
+      ignore_errors: yes
+      when: sshd_check is succeeded
+
+    - name: Configure SSH Agent service
+      win_service:
+        name: ssh-agent
+        start_mode: auto
+        state: started
+      ignore_errors: yes
+
+    - name: Create SSH config directory
+      win_file:
+        path: "C:\\ProgramData\\ssh"
+        state: directory
+      when: sshd_check is succeeded
+
+    - name: Create basic SSH config file
+      win_copy:
+        dest: "C:\\ProgramData\\ssh\\sshd_config"
+        content: |
+          Port {{ ssh_port }}
+          PubkeyAuthentication yes
+          AuthorizedKeysFile .ssh/authorized_keys
+          PasswordAuthentication yes
+          PermitRootLogin no
+          Subsystem sftp sftp-server.exe
+      when: sshd_check is succeeded
+      notify: restart sshd
+
+    - name: Generate SSH host keys if missing
+      win_shell: |
+        $keyPath = "C:\ProgramData\ssh\ssh_host_rsa_key"
+        if (-not (Test-Path $keyPath)) {
+          Write-Output "Generating SSH host keys..."
+          ssh-keygen -t rsa -f $keyPath -N '""'
+          ssh-keygen -t ed25519 -f "C:\ProgramData\ssh\ssh_host_ed25519_key" -N '""'
+        } else {
+          Write-Output "SSH host keys already exist"
+        }
+      when: sshd_check is succeeded
+      ignore_errors: yes
+
+    - name: Configure Windows Firewall
+      win_firewall_rule:
+        name: "SSH Server"
+        localport: "{{ ssh_port }}"
+        action: allow
+        direction: in
+        protocol: tcp
+        state: present
+
+    - name: Create user .ssh directory
+      win_file:
+        path: "C:\\Users\\{{ ansible_user }}\\.ssh"
+        state: directory
+
+    - name: Copy public key if available locally
+      block:
+        - name: Check for local public key
+          local_action:
+            module: stat
+            path: "{{ lookup('env', 'HOME') }}/.ssh/id_ed25519.pub"
+          register: local_key
+          become: no
+
+        - name: Read public key content
+          local_action:
+            module: slurp
+            src: "{{ lookup('env', 'HOME') }}/.ssh/id_ed25519.pub"
+          register: key_content
+          when: local_key.stat.exists
+          become: no
+
+        - name: Create authorized_keys file
+          win_copy:
+            dest: "C:\\Users\\{{ ansible_user }}\\.ssh\\authorized_keys"
+            content: "{{ key_content.content | b64decode }}"
+          when: local_key.stat.exists
+
+    - name: Restart SSH service after configuration
+      win_service:
+        name: sshd
+        state: restarted
+      when: sshd_check is succeeded
+      ignore_errors: yes
+
+    - name: Test SSH service connectivity
+      wait_for:
+        host: "{{ ansible_host }}"
+        port: "{{ ssh_port }}"
+        timeout: 30
+      delegate_to: localhost
+      register: ssh_connectivity
+      ignore_errors: yes
+
+    - name: Display installation results
+      debug:
+        msg: |
+          ========================================
+          SSH Installation Results
+          ========================================
+          Chocolatey install: {{ 'SUCCESS' if choco_install is succeeded else 'FAILED' }}
+          SSH service install: {{ 'SUCCESS' if ssh_service_install is succeeded else 'SKIPPED/FAILED' }}
+          PowerShell install: {{ 'SUCCESS' if ps_install is succeeded else 'SKIPPED/FAILED' }}
+          Manual install: {{ 'SUCCESS' if manual_install is succeeded else 'SKIPPED/FAILED' }}
+          Service exists: {{ 'YES' if sshd_check is succeeded else 'NO' }}
+          Service configuration: {{ 'SUCCESS' if service_config is succeeded else 'FAILED' }}
+          SSH connectivity: {{ 'SUCCESS' if ssh_connectivity is succeeded else 'FAILED' }}
+          
+          {% if sshd_check is succeeded and service_config is succeeded %}
+          ✅ SSH should now be available at:
+          ssh {{ ansible_user }}@{{ ansible_host }} -p {{ ssh_port }}
+          
+          For VS Code Remote SSH:
+          1. Add to ~/.ssh/config:
+             Host gto-windows
+                 HostName {{ ansible_host }}
+                 User {{ ansible_user }}
+                 Port {{ ssh_port }}
+                 IdentityFile ~/.ssh/id_ed25519
+          
+          2. Connect via VS Code Remote SSH extension
+          3. Open remote folder: C:\gto-service
+          {% else %}
+          ❌ SSH setup incomplete. Issues found:
+          {% if sshd_check is failed %}
+          - SSH service not installed properly
+          {% endif %}
+          {% if service_config is failed %}
+          - SSH service failed to start
+          {% endif %}
+          {% if ssh_connectivity is failed %}
+          - SSH port {{ ssh_port }} not accessible
+          {% endif %}
+          
+          Try running the playbook again or check Windows Event Logs.
+          {% endif %}
+          ========================================
+
+  handlers:
+    - name: restart sshd
+      win_service:
+        name: sshd
+        state: restarted
+      ignore_errors: yes
