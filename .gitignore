@@ -10,6 +10,12 @@ ansible/group_vars/
 ansible/host_vars/
 *.retry
 
+# Ansible-lint cache
+.cache/
+
+# Ansible runtime directory
+.ansible/
+
 # Python
 __pycache__/
 *.py[cod]
