@@ -67,6 +67,21 @@ setup-windows:
 	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-galaxy collection install ansible.windows
 	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-playbook -i ansible/inventory.yml ansible/setup-gto-solver.yml
 
+# Setup SSH for remote development
+setup-ssh:
+	@echo "Setting up SSH for VS Code remote development..."
+	@./scripts/setup-remote-ssh.sh
+
+# Configure SSH on Windows VM
+setup-windows-ssh:
+	@echo "Configuring SSH server on Windows VM..."
+	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-playbook -i ansible/inventory.yml ansible/ansible-gto-ssh.yml
+
+# Configure SSH on Windows VM (Simple method)
+setup-windows-ssh-simple:
+	@echo "Configuring SSH server on Windows VM (simple method)..."
+	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-playbook -i ansible/inventory.yml ansible/ansible-gto-ssh-simple.yml
+
 # Setup Windows system configuration only (firewall, performance)
 setup-windows-system:
 	@echo "Setting up Windows system configuration for GTO+..."
@@ -78,6 +93,11 @@ setup-windows-service:
 	@echo "Setting up GTO+ service management..."
 	@echo "Installing service scripts, monitoring, and scheduled tasks..."
 	@OBJC_DISABLE_INITIALIZE_FORK_SAFETY=YES pipenv run ansible-playbook -i ansible/inventory.yml ansible/ansible-gto-service.yml
+
+# Test remote GTO service
+test-service:
+	@echo "Testing remote GTO service..."
+	@pipenv run python test-gto-service.py
 
 # Test Windows VM connection
 test-windows:
@@ -123,9 +143,12 @@ help:
 	@echo "  make ai-hands      - Step 2: AI analysis on specific hands ($$)"
 	@echo ""
 	@echo "WINDOWS SERVER SETUP (Modular):"
+	@echo "  make setup-ssh             - Setup VS Code Remote SSH locally"
+	@echo "  make setup-windows-ssh     - Configure SSH server on Windows VM"
 	@echo "  make setup-windows-system  - Configure firewall & performance only"
 	@echo "  make setup-windows-service - Install service scripts & monitoring only"
 	@echo "  make test-windows          - Test connection to Windows servers"
+	@echo "  make test-service          - Test remote GTO+ service API"
 	@echo ""
 	@echo "OTHER COMMANDS:"
 	@echo "  make run           - Interactive mode with all options"
@@ -136,6 +159,7 @@ help:
 	@echo "  make setup-windows-system  - Setup Windows system configuration only"
 	@echo "  make setup-windows-service - Setup GTO+ service management only"
 	@echo "  make test-windows  - Test connection to Windows VM"
+	@echo "  make test-service  - Test remote GTO+ service API"
 	@echo "  make check         - Check environment setup"
 	@echo "  make security      - Run security vulnerability checks"
 	@echo "  make clean         - Remove pipenv environment"
@@ -148,10 +172,12 @@ help:
 	@echo "  5. make visualize  # View results in web browser"
 	@echo ""
 	@echo "WINDOWS SETUP EXAMPLE:"
-	@echo "  1. Configure ansible/inventory.yml with your Windows servers"
-	@echo "  2. make setup-windows-system   # Configure system optimizations"
-	@echo "  3. make setup-windows-service  # Install service management"
-	@echo "  4. make test-windows           # Verify connection"
+	@echo "  1. make setup-ssh              # Setup VS Code Remote SSH locally"
+	@echo "  2. Configure ansible/inventory.yml with your Windows servers"
+	@echo "  3. make setup-windows-ssh      # Configure SSH on Windows VM"
+	@echo "  4. make setup-windows-system   # Configure system optimizations"
+	@echo "  5. make setup-windows-service  # Install service management"
+	@echo "  6. Connect via VS Code Remote SSH to edit files remotely"
 	@echo ""
 	@echo "CLI USAGE:"
 	@echo "  pipenv run python gto_cli.py gto"
