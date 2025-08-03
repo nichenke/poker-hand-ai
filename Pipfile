@@ -12,6 +12,7 @@ pyyaml = "*"
 python-dotenv = "*"
 flask = "*"
 markdown = "*"
+ansible-lint = "*"
 
 [dev-packages]
 safety = "*"
